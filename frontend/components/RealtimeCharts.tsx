@@ -1,30 +1,38 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
+  ResponsiveContainer,
   AreaChart,
   Area,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
+  CartesianGrid,
 } from 'recharts';
-import { TelemetryState } from '../types';
-import { AreaChart as ChartIcon, Eye } from 'lucide-react';
+import { Activity, BarChart2 } from 'lucide-react';
+
+interface TelemetryState {
+  timestamp: string;
+  waterDetected: boolean;
+  waterSensor: number;
+  distance: number;
+  waterLevel: number;
+  status: 'NORMAL' | 'WARNING' | 'CHECKING' | 'BLOCKED';
+  pumpRunning: boolean;
+  relay: boolean;
+}
 
 interface RealtimeChartsProps {
   history: TelemetryState[];
-  connected: boolean;
 }
 
-export default function RealtimeCharts({ history, connected }: RealtimeChartsProps) {
-  const [activeTab, setActiveTab] = useState<'level' | 'distance'>('level');
+export default function RealtimeCharts({ history }: RealtimeChartsProps) {
+  const [metric, setMetric] = useState<'level' | 'distance'>('level');
 
-  // Format data for Recharts
-  const chartData = history.map((item) => {
+  // Format data for Recharts, taking last 50 readings
+  const chartData = history.slice(-50).map((item) => {
     try {
       const timeObj = new Date(item.timestamp);
       const timeFormatted = timeObj.toLocaleTimeString('en-US', {
@@ -47,149 +55,111 @@ export default function RealtimeCharts({ history, connected }: RealtimeChartsPro
     }
   });
 
+  const isLevel = metric === 'level';
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm flex flex-col h-full">
-      {/* Header and Tab Selector */}
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.4 }}
+      className="bg-white rounded-[20px] border border-zinc-100 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] h-full flex flex-col justify-between min-h-[400px]"
+    >
+      {/* Chart Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <ChartIcon className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-bold text-gray-800">Historical Telemetry</h2>
+          <div className="p-2 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+            <Activity className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-zinc-800">Telemetry History</h3>
+            <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider mt-0.5">
+              Live updates every 1.0s
+            </p>
+          </div>
         </div>
 
-        {/* Apple-style Segmented Control */}
-        <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200/40 select-none">
+        {/* Chart Toggle Switches */}
+        <div className="flex items-center gap-1 bg-zinc-50 border border-zinc-100 p-1 rounded-xl shrink-0">
           <button
-            onClick={() => setActiveTab('level')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all ${
-              activeTab === 'level'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-800'
+            onClick={() => setMetric('level')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              isLevel
+                ? 'bg-white text-blue-600 border border-zinc-200/50 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-600'
             }`}
           >
             Water Level (%)
           </button>
           <button
-            onClick={() => setActiveTab('distance')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all ${
-              activeTab === 'distance'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-800'
+            onClick={() => setMetric('distance')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              !isLevel
+                ? 'bg-white text-blue-600 border border-zinc-200/50 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-600'
             }`}
           >
-            Sump Distance (m)
+            Distance (cm)
           </button>
         </div>
       </div>
 
-      {/* Chart Canvas Area */}
-      <div className="flex-1 w-full min-h-[260px] relative">
-        {!connected && chartData.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/20 rounded-xl border border-dashed border-gray-200 text-center p-6">
-            <Eye className="w-8 h-8 text-gray-300 animate-pulse mb-2" />
-            <p className="text-sm font-semibold text-gray-500">Waiting for live data feed...</p>
-            <p className="text-xs text-gray-400 mt-0.5">Please connect the Arduino UNO to populate history.</p>
+      {/* Chart Visualizer */}
+      <div className="flex-1 w-full h-[280px]">
+        {chartData.length === 0 ? (
+          <div className="w-full h-full flex flex-col items-center justify-center border border-dashed border-zinc-100 rounded-xl text-zinc-400 gap-2">
+            <BarChart2 className="w-8 h-8 text-zinc-300 animate-pulse" />
+            <span className="text-xs font-semibold">Waiting for telemetry packets...</span>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            {activeTab === 'level' ? (
-              <AreaChart data={chartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorLevel" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  dy={10}
-                  style={{ fontSize: '10px', fill: '#9ca3af', fontWeight: 500 }}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tickLine={false}
-                  axisLine={false}
-                  dx={-5}
-                  style={{ fontSize: '10px', fill: '#9ca3af', fontWeight: 500 }}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-white border border-gray-200/80 p-3 rounded-xl shadow-xl flex flex-col gap-0.5 select-none">
-                          <span className="text-[10px] text-gray-400 font-bold tracking-wider">{payload[0].payload.time}</span>
-                          <span className="text-sm font-black text-blue-600">
-                            Level: {payload[0].value}%
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="waterLevel"
-                  stroke="#3b82f6"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorLevel)"
-                  isAnimationActive={false} // Disable to avoid chart lag during rapid socket refreshes
-                />
-              </AreaChart>
-            ) : (
-              <LineChart data={chartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
-                <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tickLine={false}
-                  axisLine={false}
-                  dy={10}
-                  style={{ fontSize: '10px', fill: '#9ca3af', fontWeight: 500 }}
-                />
-                <YAxis
-                  domain={['auto', 'auto']}
-                  tickLine={false}
-                  axisLine={false}
-                  dx={-5}
-                  style={{ fontSize: '10px', fill: '#9ca3af', fontWeight: 500 }}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-white border border-gray-200/80 p-3 rounded-xl shadow-xl flex flex-col gap-0.5 select-none">
-                          <span className="text-[10px] text-gray-400 font-bold tracking-wider">{payload[0].payload.time}</span>
-                          <span className="text-sm font-black text-indigo-600">
-                            Distance: {payload[0].value} m
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="distance"
-                  stroke="#6366f1"
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 6 }}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            )}
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.12} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 10, fill: '#71717a', fontWeight: 600 }}
+                axisLine={false}
+                tickLine={false}
+                dy={10}
+              />
+              <YAxis
+                domain={isLevel ? [0, 100] : ['auto', 'auto']}
+                tick={{ fontSize: 10, fill: '#71717a', fontWeight: 600 }}
+                axisLine={false}
+                tickLine={false}
+                dx={-10}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  fontWeight: 600,
+                }}
+                labelStyle={{ color: '#71717a' }}
+              />
+              <Area
+                type="monotone"
+                dataKey={isLevel ? 'waterLevel' : 'distance'}
+                stroke="#3b82f6"
+                strokeWidth={2.5}
+                fillOpacity={1}
+                fill="url(#chartGradient)"
+                name={isLevel ? 'Water Level (%)' : 'Distance (cm)'}
+                animationDuration={300}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         )}
       </div>
-
-      <div className="flex items-center justify-between mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-wider select-none">
-        <span>History window: 40s</span>
-        <span>Updates: Instant (WS)</span>
-      </div>
-    </div>
+    </motion.div>
   );
 }

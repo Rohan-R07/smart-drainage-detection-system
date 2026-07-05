@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { ConnectionHealth } from '../types';
-import { Activity, Wifi, WifiOff, RefreshCw, Cpu, Layers } from 'lucide-react';
+import { Wifi, WifiOff, Calendar, Clock, Database } from 'lucide-react';
 
 interface HeaderProps {
-  connectionHealth: ConnectionHealth;
+  connectionHealth: ConnectionHealth | null;
 }
 
 export default function Header({ connectionHealth }: HeaderProps) {
@@ -15,12 +15,12 @@ export default function Header({ connectionHealth }: HeaderProps) {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setTime(now.toLocaleTimeString('en-US', { hour12: false }));
+      setTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       setDate(
         now.toLocaleDateString('en-US', {
-          weekday: 'short',
+          weekday: 'long',
           year: 'numeric',
-          month: 'short',
+          month: 'long',
           day: 'numeric',
         })
       );
@@ -31,102 +31,74 @@ export default function Header({ connectionHealth }: HeaderProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const {
-    connected,
-    port,
-    packets_received,
-    malformed_packets,
-    reconnect_attempts,
-    last_packet_received,
-  } = connectionHealth;
-
-  const lastPacketTimeFormatted = last_packet_received
-    ? new Date(last_packet_received).toLocaleTimeString('en-US', { hour12: false })
-    : 'N/A';
+  const isConnected = connectionHealth?.connected ?? false;
+  const activePort = connectionHealth?.port ?? 'N/A';
 
   return (
-    <header className="w-full bg-white/80 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-40 px-6 py-4 transition-all duration-300">
+    <header className="w-full bg-white border-b border-zinc-100 sticky top-0 z-40 px-6 py-5">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        {/* Title and Time Info */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping" />
-            <h1 className="text-xl font-bold tracking-tight text-gray-900 md:text-2xl">
+        {/* Title Block */}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900 md:text-2xl">
               Smart Drainage Monitoring System
             </h1>
           </div>
-          <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">
-            Solar Water Pumping System Model
+          <p className="text-sm text-zinc-500 font-medium mt-0.5">
+            Real-time Municipal Drainage Monitoring
           </p>
         </div>
 
-        {/* Live Date/Time Clock & Health Panel */}
+        {/* Live Date/Time Clock & Connection Badges */}
         <div className="flex flex-wrap items-center gap-4">
-          {/* Running Clock Card */}
-          <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 flex flex-col items-end shadow-sm">
-            <span className="text-sm font-semibold text-gray-800 tabular-nums">
-              {time || '00:00:00'}
-            </span>
-            <span className="text-[10px] text-gray-400 font-medium">
-              {date || 'Loading...'}
-            </span>
+          {/* Running Clock Cards */}
+          <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2 text-zinc-600 shadow-sm text-xs font-medium">
+            <div className="flex items-center gap-1.5 border-r border-zinc-200 pr-3">
+              <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+              <span>{date || 'Loading...'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 font-mono tabular-nums text-zinc-800 font-semibold">
+              <Clock className="w-3.5 h-3.5 text-zinc-400" />
+              <span>{time || '00:00:00'}</span>
+            </div>
           </div>
 
-          {/* Connection Status Panel */}
-          <div className="flex items-center gap-3 bg-white border border-gray-200/60 rounded-xl p-1.5 shadow-sm">
-            {/* Status indicator */}
+          {/* Connection Status Badge */}
+          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 rounded-xl p-1 shadow-sm">
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                connected
-                  ? 'bg-green-50 text-green-700 border border-green-200/50'
-                  : 'bg-red-50 text-red-700 border border-red-200/50'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all duration-300 ${
+                isConnected
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                  : 'bg-rose-50 text-rose-700 border border-rose-100'
               }`}
             >
-              {connected ? (
+              {isConnected ? (
                 <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
                   <Wifi className="w-3.5 h-3.5" />
                   <span>CONNECTED</span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="w-3.5 h-3.5 animate-pulse" />
-                  <span>DISCONNECTED</span>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  </span>
+                  <WifiOff className="w-3.5 h-3.5" />
+                  <span>OFFLINE</span>
                 </>
               )}
             </div>
-
-            {/* Quick Metrics details */}
-            <div className="hidden sm:flex items-center gap-4 px-3 text-[11px] text-gray-500 font-medium">
-              <div className="flex items-center gap-1">
-                <Cpu className="w-3.5 h-3.5 text-gray-400" />
-                <span>Port: <span className="font-semibold text-gray-700">{port}</span></span>
-              </div>
-              
-              <div className="flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-gray-400" />
-                <span>Packets: <span className="font-semibold text-gray-700">{packets_received}</span></span>
-              </div>
-
-              {malformed_packets > 0 && (
-                <div className="flex items-center gap-1 text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">
-                  <span>Malformed: <span className="font-bold">{malformed_packets}</span></span>
-                </div>
-              )}
-
-              {reconnect_attempts > 0 && (
-                <div className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded animate-pulse">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  <span>Retries: <span className="font-bold">{reconnect_attempts}</span></span>
-                </div>
-              )}
-
-              {connected && (
-                <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
-                  <Activity className="w-3.5 h-3.5 text-gray-400" />
-                  <span>Last: <span className="font-semibold text-gray-700">{lastPacketTimeFormatted}</span></span>
-                </div>
-              )}
-            </div>
+            
+            {isConnected && (
+              <span className="text-[11px] font-semibold text-zinc-400 px-2 flex items-center gap-1">
+                <Database className="w-3 h-3 text-zinc-300" />
+                {activePort}
+              </span>
+            )}
           </div>
         </div>
       </div>

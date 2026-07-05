@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+import { motion } from 'framer-motion';
 
 interface WaterGaugeProps {
   waterLevel: number;
@@ -8,69 +10,72 @@ interface WaterGaugeProps {
 
 export default function WaterGauge({ waterLevel, connected }: WaterGaugeProps) {
   // Determine color theme based on water level
-  const getGaugeColors = (val: number) => {
+  const getColors = (val: number) => {
     if (!connected) {
       return {
-        fillClass: 'bg-gray-400/85',
-        borderClass: 'border-gray-200',
-        textClass: 'text-gray-500',
-        bgClass: 'bg-gray-50',
+        fillClass: 'bg-zinc-400',
+        borderClass: 'border-zinc-200',
+        textClass: 'text-zinc-400',
+        bgClass: 'bg-zinc-50/50',
+        gradient: 'from-zinc-400 to-zinc-500',
       };
     }
-    if (val <= 60) {
+    if (val <= 70) {
       return {
-        fillClass: 'bg-green-500/80',
-        borderClass: 'border-green-200/50',
-        textClass: 'text-green-600',
-        bgClass: 'bg-green-50/20',
+        fillClass: 'bg-emerald-500',
+        borderClass: 'border-emerald-200',
+        textClass: 'text-emerald-600',
+        bgClass: 'bg-emerald-50/30',
+        gradient: 'from-emerald-400 to-emerald-500',
       };
     }
-    if (val <= 80) {
+    if (val <= 90) {
       return {
-        fillClass: 'bg-yellow-500/80',
-        borderClass: 'border-yellow-200/50',
-        textClass: 'text-yellow-600',
-        bgClass: 'bg-yellow-50/20',
+        fillClass: 'bg-amber-500',
+        borderClass: 'border-amber-200',
+        textClass: 'text-amber-600',
+        bgClass: 'bg-amber-50/30',
+        gradient: 'from-amber-400 to-amber-500',
       };
     }
     return {
-      fillClass: 'bg-red-500/80',
-      borderClass: 'border-red-200/50',
-      textClass: 'text-red-600',
-      bgClass: 'bg-red-50/20',
+      fillClass: 'bg-rose-500',
+      borderClass: 'border-rose-200',
+      textClass: 'text-rose-600',
+      bgClass: 'bg-rose-50/30',
+      gradient: 'from-rose-400 to-rose-500',
     };
   };
 
-  const colors = getGaugeColors(waterLevel);
-
-  // Map 0-100 level to a percentage bottom position (-100% is empty, 0% is full)
-  // Let's offset bottom position to give a realistic display
+  const colors = getColors(waterLevel);
   const waveBottomOffset = connected ? `${waterLevel - 100}%` : '-100%';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm flex flex-col items-center justify-center h-full">
-      <h2 className="text-sm font-bold text-gray-400 tracking-wider uppercase mb-6">
-        Sump Water Gauge
-      </h2>
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.1 }}
+      className="bg-white rounded-[20px] border border-zinc-100 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex flex-col items-center justify-center h-full min-h-[300px]"
+    >
+      <h3 className="text-xs font-bold text-zinc-400 tracking-widest uppercase mb-4">
+        Water Tank Volume
+      </h3>
 
       <div className="relative w-52 h-52 flex items-center justify-center">
-        {/* Outer styling ring */}
-        <div
-          className={`absolute inset-0 rounded-full border-4 ${colors.borderClass} ${colors.bgClass} shadow-md transition-all duration-500`}
-        />
+        {/* Outer subtle shadow boundary */}
+        <div className={`absolute inset-0 rounded-full border border-zinc-100/80 bg-zinc-50/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)]`} />
 
         {/* Circular liquid container */}
-        <div className="relative w-48 h-48 rounded-full bg-white shadow-inner overflow-hidden border border-gray-100">
-          
-          {/* Animated Wave 1 */}
+        <div className="relative w-48 h-48 rounded-full bg-white shadow-inner overflow-hidden border border-zinc-100 flex items-center justify-center">
+          {/* Wave 1 */}
           <div
-            className={`absolute left-1/2 w-[220%] h-[220%] rounded-[42%] -translate-x-1/2 wave-animation transition-all duration-1000 ${colors.fillClass}`}
+            className={`absolute left-1/2 w-[220%] h-[220%] rounded-[42%] -translate-x-1/2 wave-animation transition-all duration-1000 ${colors.fillClass} opacity-85`}
             style={{ bottom: waveBottomOffset }}
           />
 
-          {/* Animated Wave 2 (Slow offset to create volumetric depth) */}
+          {/* Wave 2 (layered volumetric opacity depth) */}
           <div
-            className={`absolute left-1/2 w-[230%] h-[230%] rounded-[40%] -translate-x-1/2 wave-animation-slow opacity-60 transition-all duration-1000 ${colors.fillClass}`}
+            className={`absolute left-1/2 w-[230%] h-[230%] rounded-[40%] -translate-x-1/2 wave-animation-slow transition-all duration-1000 ${colors.fillClass} opacity-40`}
             style={{ bottom: waveBottomOffset }}
           />
 
@@ -79,23 +84,21 @@ export default function WaterGauge({ waterLevel, connected }: WaterGaugeProps) {
             {connected ? (
               <>
                 <div className="flex items-baseline">
-                  <span className="text-5xl font-extrabold text-gray-900 tracking-tight">
+                  <span className="text-5xl font-black text-zinc-900 tracking-tight">
                     {waterLevel}
                   </span>
-                  <span className="text-xl font-bold text-gray-500 ml-0.5">
-                    %
-                  </span>
+                  <span className="text-xl font-bold text-zinc-400 ml-0.5">%</span>
                 </div>
-                <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase mt-1">
-                  Water Volume
+                <span className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase mt-1">
+                  Saturated
                 </span>
               </>
             ) : (
               <>
-                <span className="text-3xl font-extrabold text-gray-400 tracking-tight">
+                <span className="text-2xl font-black text-zinc-400 tracking-tight">
                   OFFLINE
                 </span>
-                <span className="text-[9px] font-bold tracking-wider text-gray-400 uppercase mt-1">
+                <span className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase mt-1">
                   No Connection
                 </span>
               </>
@@ -103,22 +106,6 @@ export default function WaterGauge({ waterLevel, connected }: WaterGaugeProps) {
           </div>
         </div>
       </div>
-
-      {/* Threshold Status Indicators */}
-      <div className="flex justify-between w-full max-w-xs mt-6 pt-4 border-t border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-        <div className="flex flex-col items-center">
-          <span className="text-green-500">Normal</span>
-          <span>&lt; 60%</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span className="text-yellow-500">Warning</span>
-          <span>61% - 80%</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span className="text-red-500">Critical</span>
-          <span>&gt; 80%</span>
-        </div>
-      </div>
-    </div>
+    </motion.div>
   );
 }
