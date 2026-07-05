@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardPayload } from '../types';
-import { Droplet, Fan, Ruler, AlertCircle, WifiOff } from 'lucide-react';
+import { Droplet, Fan, Ruler, AlertCircle, WifiOff, AlertTriangle, Power, RefreshCw, X } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 import Header from '../components/Header';
@@ -16,7 +16,10 @@ import EventTimeline from '../components/EventTimeline';
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [blockageDismissed, setBlockageDismissed] = useState<boolean>(false);
 
   const fetchData = async () => {
     try {
@@ -36,7 +39,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData(); // Initial load
-    const interval = setInterval(fetchData, 1000); // Poll every 1s
+    const interval = setInterval(fetchData, 1000); // Poll every 1 second
 
     return () => clearInterval(interval);
   }, []);
@@ -46,12 +49,49 @@ export default function DashboardPage() {
   const history = data?.history || [];
   const events = data?.events || [];
 
-  // Prepare sparkline history (last 10 points)
+  const isBlocked = latestState?.status === 'BLOCKED';
+
+  // Automatically reset the blockage dismissed flag once the blockage clears
+  useEffect(() => {
+    if (!isBlocked) {
+      setBlockageDismissed(false);
+    }
+  }, [isBlocked]);
+
+  const handlePumpControl = async (cmd: 'PUMP_ON' | 'PUMP_OFF') => {
+    if (!isConnected || actionLoading) return;
+    setActionLoading(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/control', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command: cmd }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP error! Status: ${response.status}`);
+      }
+
+      // Refresh data immediately
+      await fetchData();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Sparkline history data points (last 10 Level reads)
   const sparklineData = history.slice(-10).map((item) => ({
     waterLevel: item.waterLevel,
   }));
 
-  // Loading skeleton state
+  // Loading skeleton screen
   if (loading && !data) {
     return (
       <div className="min-h-screen bg-zinc-50/50 flex flex-col font-sans p-6 space-y-6">
@@ -80,8 +120,40 @@ export default function DashboardPage() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (waterLevel / 100) * circumference;
 
+  // Stagger variants for the dashboard elements
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50/40 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-800 relative">
+      
+      {/* Sticky Warning Bar (displays only when blockage is active) */}
+      <AnimatePresence>
+        {isBlocked && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="w-full bg-rose-600 text-white text-center font-bold text-xs py-3 px-4 flex items-center justify-center gap-2 z-30 relative shadow-md"
+          >
+            <AlertTriangle className="w-4 h-4 animate-pulse shrink-0" />
+            <span>⚠ BLOCKAGE DETECTED — Drainage inspection required.</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header Panel */}
       <Header connectionHealth={connectionHealth} />
 
@@ -96,6 +168,13 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {actionError && (
+          <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4 text-xs font-semibold text-rose-700 shadow-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>Command Dispatch Failed: {actionError}</span>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {!isWaterDetected ? (
             /* DRY EMPTY STATE PANEL */
@@ -105,49 +184,37 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.4 }}
-              className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start"
+              className="flex-1 flex items-center justify-center py-12"
             >
-              {/* Centered Monospace illustration droplet Empty-State Card */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-[20px] border border-zinc-100 p-12 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col items-center justify-center text-center min-h-[500px]">
-                  <motion.div
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-                    className="w-24 h-24 rounded-full bg-blue-50 border border-blue-100/50 flex items-center justify-center text-blue-500 text-5xl mb-6 shadow-sm"
-                  >
-                    💧
-                  </motion.div>
-                  <h2 className="text-xl font-black text-zinc-850 tracking-tight flex items-center gap-2 justify-center">
-                    No Water Detected
-                  </h2>
-                  <p className="text-sm text-zinc-400 font-semibold max-w-sm mt-3 leading-relaxed">
-                    The drainage is currently dry.
-                    <br />
-                    Waiting for water to be detected...
-                  </p>
-                </div>
-              </div>
-
-              {/* Status and Events Timeline (continue displaying side-by-side) */}
-              <div className="lg:col-span-1 flex flex-col gap-6">
-                {latestState && (
-                  <StatusPanel latestState={latestState} connected={isConnected} />
-                )}
-                <EventTimeline events={events} />
+              {/* Apple-style premium dry state illustration */}
+              <div className="bg-white rounded-[24px] border border-zinc-100 p-16 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col items-center justify-center text-center max-w-md w-full min-h-[400px]">
+                <motion.div
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  className="w-24 h-24 rounded-full bg-blue-50 border border-blue-100/50 flex items-center justify-center text-blue-500 text-5xl mb-6 shadow-sm"
+                >
+                  💧
+                </motion.div>
+                <h2 className="text-xl font-black text-zinc-800 tracking-tight">No Water Detected</h2>
+                <p className="text-sm text-zinc-400 font-semibold mt-3 leading-relaxed">
+                  The drainage is currently dry.
+                  <br />
+                  Waiting for water to be detected...
+                </p>
               </div>
             </motion.div>
           ) : (
             /* WATER TELEMETRY PRESENT DASHBOARD PANEL */
             <motion.div
               key="wet-state"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.4 }}
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              exit="hidden"
               className="flex flex-col gap-6"
             >
               {/* First Row: 4 Stat Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 
                 {/* Card 1: Water Level */}
                 <div className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]">
@@ -251,36 +318,140 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-              </div>
+              </motion.div>
 
               {/* Second Row: Core Analytics Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                   <RealtimeCharts history={history} />
                 </div>
                 <div className="lg:col-span-1">
                   <WaterGauge waterLevel={waterLevel} connected={isConnected} />
                 </div>
-              </div>
+              </motion.div>
 
               {/* Third Row: Diagnostics & Control Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {latestState && (
                   <>
                     <StatusPanel latestState={latestState} connected={isConnected} />
                     <ControlPanel latestState={latestState} connected={isConnected} onSuccess={fetchData} />
                   </>
                 )}
-              </div>
+              </motion.div>
 
               {/* Fourth Row: Live Activity Timeline */}
-              <div className="w-full">
+              <motion.div variants={itemVariants} className="w-full">
                 <EventTimeline events={events} />
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      {/* Blockage Alert Overlay Modal (Highest Priority) */}
+      <AnimatePresence>
+        {isBlocked && !blockageDismissed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-md flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 30 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 180 }}
+              className="bg-gradient-to-br from-rose-500 to-rose-600 border border-rose-400 text-white rounded-[24px] p-8 shadow-2xl max-w-md w-full relative overflow-hidden"
+            >
+              {/* Absoluted close dismiss node */}
+              <button
+                onClick={() => setBlockageDismissed(true)}
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white/90"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex flex-col items-center text-center">
+                {/* Warning Blinking Icon */}
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-3xl mb-4"
+                >
+                  🚨
+                </motion.div>
+
+                <h2 className="text-2xl font-black tracking-tight">BLOCKAGE DETECTED</h2>
+                <p className="text-xs font-semibold text-rose-100 mt-2 leading-relaxed max-w-xs">
+                  Possible drainage blockage has been detected. Immediate inspection is recommended.
+                </p>
+
+                {/* Diagnostics block */}
+                <div className="grid grid-cols-2 gap-4 w-full bg-white/10 border border-white/10 rounded-xl p-4 my-6 text-left">
+                  <div>
+                    <span className="text-[10px] font-bold text-rose-200 uppercase tracking-wider block">
+                      Water Level
+                    </span>
+                    <span className="text-xl font-black">{waterLevel}%</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-rose-200 uppercase tracking-wider block">
+                      Pump Status
+                    </span>
+                    <span className="text-xl font-black">
+                      {latestState?.pumpRunning ? 'Running' : 'Stopped'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pump control override CTA inside modal */}
+                <div className="flex flex-col gap-3 w-full">
+                  {latestState?.pumpRunning ? (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handlePumpControl('PUMP_OFF')}
+                      disabled={actionLoading}
+                      className="w-full py-3.5 bg-white text-rose-600 font-bold rounded-xl text-sm shadow-md hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      {actionLoading ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Power className="w-4 h-4" />
+                      )}
+                      <span>STOP PUMP</span>
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handlePumpControl('PUMP_ON')}
+                      disabled={actionLoading}
+                      className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-sm shadow-md border border-emerald-400 transition-all flex items-center justify-center gap-2"
+                    >
+                      {actionLoading ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Power className="w-4 h-4" />
+                      )}
+                      <span>START PUMP</span>
+                    </motion.button>
+                  )}
+
+                  <button
+                    onClick={() => setBlockageDismissed(true)}
+                    className="text-xs font-semibold text-rose-100 hover:text-white transition-all underline underline-offset-4 decoration-rose-300 hover:decoration-white mt-1"
+                  >
+                    Dismiss Warning
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Reconnection Overlay Cover Screen (Apple/Tesla style blur) */}
       <AnimatePresence>

@@ -26,7 +26,7 @@ export default function StatusPanel({ latestState, connected }: StatusPanelProps
   const statusRegistry = [
     {
       key: 'DRY',
-      label: '⚪ No Water Detected',
+      label: '⚪ No Water',
       color: 'zinc',
       badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-200',
       activeBadgeClass: 'bg-zinc-100 text-zinc-800 border-zinc-300 ring-zinc-200',
@@ -35,7 +35,7 @@ export default function StatusPanel({ latestState, connected }: StatusPanelProps
     },
     {
       key: 'NORMAL',
-      label: 'Normal Operation',
+      label: '🟢 Normal',
       color: 'emerald',
       badgeClass: 'bg-emerald-50/50 text-emerald-600 border-emerald-100',
       activeBadgeClass: 'bg-emerald-500 text-white border-emerald-500 ring-emerald-100',
@@ -44,7 +44,7 @@ export default function StatusPanel({ latestState, connected }: StatusPanelProps
     },
     {
       key: 'CHECKING',
-      label: 'Flow Checking',
+      label: '🔵 Checking',
       color: 'blue',
       badgeClass: 'bg-blue-50/50 text-blue-600 border-blue-100',
       activeBadgeClass: 'bg-blue-600 text-white border-blue-600 ring-blue-100',
@@ -53,7 +53,7 @@ export default function StatusPanel({ latestState, connected }: StatusPanelProps
     },
     {
       key: 'WARNING',
-      label: 'Critical Warning',
+      label: '🟡 Warning',
       color: 'amber',
       badgeClass: 'bg-amber-50/50 text-amber-600 border-amber-100',
       activeBadgeClass: 'bg-amber-500 text-white border-amber-500 ring-amber-100',
@@ -62,7 +62,7 @@ export default function StatusPanel({ latestState, connected }: StatusPanelProps
     },
     {
       key: 'BLOCKED',
-      label: 'Drainage Blocked',
+      label: '🔴 Blockage',
       color: 'rose',
       badgeClass: 'bg-rose-50/50 text-rose-600 border-rose-100',
       activeBadgeClass: 'bg-rose-600 text-white border-rose-600 ring-rose-100',
