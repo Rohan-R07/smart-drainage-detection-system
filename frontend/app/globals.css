@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f9fafb;
+  --foreground: #111827;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Premium micro-animations for the IoT Dashboard */
+@keyframes wave-slosh {
+  0% {
+    transform: translate(-50%, -70%) rotate(0deg);
+  }
+  50% {
+    transform: translate(-50%, -73%) rotate(180deg);
+  }
+  100% {
+    transform: translate(-50%, -70%) rotate(360deg);
+  }
+}
+
+.wave-animation {
+  animation: wave-slosh 10s linear infinite;
+}
+
+.wave-animation-slow {
+  animation: wave-slosh 14s linear infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.2;
+    filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8));
+  }
+}
+
+.blockage-glow {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.pipe-flow {
+  stroke-dasharray: 8, 4;
+  animation: flow-dash 1.5s linear infinite;
+}
+
+.pipe-flow-fast {
+  stroke-dasharray: 6, 3;
+  animation: flow-dash 0.8s linear infinite;
+}
