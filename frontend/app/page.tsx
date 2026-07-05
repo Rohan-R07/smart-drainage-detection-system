@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardPayload } from '../types';
 
-export default function DebugDashboard() {
+export default function TerminalDashboard() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function DebugDashboard() {
         throw new Error(errJson.error || `HTTP error! Status: ${response.status}`);
       }
 
-      // Update the UI immediately by triggering a state fetch
+      // Update UI immediately by triggering telemetry fetch
       await fetchData();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
@@ -57,174 +57,206 @@ export default function DebugDashboard() {
 
   if (loading && !data) {
     return (
-      <div style={{ padding: '20px', fontFamily: 'monospace', fontSize: '14px' }}>
+      <div style={{ padding: '20px', fontFamily: 'monospace', fontSize: '14px', background: '#09090b', color: '#a1a1aa', minHeight: '100-screen' }}>
         Loading telemetry from Flask backend...
-      </div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div style={{ padding: '20px', color: 'red', fontFamily: 'monospace' }}>
-        <h3>Error Connecting to Backend</h3>
-        <p>{error}</p>
-        <p>Ensure Flask server is running at http://127.0.0.1:5000</p>
       </div>
     );
   }
 
   const latestState = data?.latest_state;
   const connectionHealth = data?.connection || data?.connection_health;
-  const historyCount = data?.history?.length || 0;
-  const eventsCount = data?.events?.length || 0;
+  const events = data?.events || [];
+
+  // 1. Water Level calculations
+  const waterLevel = latestState?.waterLevel ?? 0;
+  const totalBlocks = 22;
+  const filledBlocks = Math.min(totalBlocks, Math.max(0, Math.round((waterLevel / 100) * totalBlocks)));
+  const emptyBlocks = totalBlocks - filledBlocks;
+  const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
+
+  // 2. Status logic mapping
+  const getStatusDisplay = (status: string | undefined) => {
+    const s = String(status || '').toUpperCase();
+    if (s === 'BLOCKED') {
+      return <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 Blocked</span>;
+    } else if (s === 'WARNING') {
+      return <span style={{ color: '#eab308', fontWeight: 'bold' }}>🟡 Warning</span>;
+    } else if (s === 'CHECKING') {
+      return <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>🔵 Checking</span>;
+    }
+    return <span style={{ color: '#22c55e', fontWeight: 'bold' }}>🟢 Normal</span>;
+  };
+
+  // 3. Water Present mapping
+  const isWaterPresent = latestState?.waterDetected ?? false;
+  const waterPresenceDisplay = isWaterPresent ? (
+    <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>💧 Water Present</span>
+  ) : (
+    <span style={{ color: '#71717a' }}>❌ Dry</span>
+  );
+
+  // 4. Drainage Condition Display
+  const isBlocked = latestState?.status === 'BLOCKED';
+  const conditionDisplay = isBlocked ? (
+    <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 Blockage Identified</span>
+  ) : (
+    <span style={{ color: '#22c55e', fontWeight: 'bold' }}>🟢 Clear</span>
+  );
+
+  // 5. Events list
+  const recentEvents = events.slice(0, 5).map((evt, idx) => (
+    <div key={idx} style={{ margin: '4px 0', color: '#e4e4e7' }}>
+      • {evt.message}
+    </div>
+  ));
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'monospace', maxWidth: '800px', margin: '0 auto', color: '#333' }}>
-      <h1>Smart Drainage Debug Sump</h1>
-      <p style={{ color: '#666' }}>Polling http://127.0.0.1:5000/api/status every 1s (No Socket.IO, No Framer Motion)</p>
-
-      {error && (
-        <div style={{ color: 'orange', border: '1px solid orange', padding: '10px', marginBottom: '20px' }}>
-          Warning: Last poll failed - {error}
-        </div>
-      )}
-
-      {actionError && (
-        <div style={{ color: 'red', border: '1px solid red', padding: '10px', marginBottom: '20px' }}>
-          Pump Action Error: {actionError}
-        </div>
-      )}
-
-      <hr />
-
-      <h2>Connection</h2>
-      <table border={1} cellPadding={8} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', borderColor: '#ddd' }}>
-        <tbody>
-          <tr>
-            <td style={{ width: '40%' }}><strong>Connected:</strong></td>
-            <td>{connectionHealth?.connected ? 'true' : 'false'}</td>
-          </tr>
-          <tr>
-            <td><strong>Port:</strong></td>
-            <td>{connectionHealth?.port}</td>
-          </tr>
-          <tr>
-            <td><strong>Packets Received:</strong></td>
-            <td>{connectionHealth?.packets_received}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h2>Pump Control</h2>
-      <div style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-        <p style={{ margin: '0 0 15px 0', fontSize: '14px' }}>
-          <strong>Pump Status:</strong>{' '}
-          {latestState?.pumpRunning ? (
-            <span style={{ color: 'green', fontWeight: 'bold' }}>🟢 Running</span>
-          ) : (
-            <span style={{ color: 'gray', fontWeight: 'bold' }}>⚪ Stopped</span>
-          )}
-        </p>
+    <div style={{
+      background: '#09090b',
+      color: '#f4f4f5',
+      fontFamily: 'monospace',
+      minHeight: '100vh',
+      padding: '40px 20px',
+      fontSize: '14px',
+      lineHeight: '1.6'
+    }}>
+      <div style={{ maxWidth: '500px', margin: '0 auto', border: '1px solid #27272a', padding: '25px', borderRadius: '4px', background: '#18181b' }}>
         
-        {latestState?.pumpRunning ? (
-          <button
-            onClick={() => handlePumpControl('PUMP_OFF')}
-            disabled={!connectionHealth?.connected}
-            style={{
-              background: '#ef4444',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              fontFamily: 'monospace',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: connectionHealth?.connected ? 'pointer' : 'not-allowed',
-              opacity: connectionHealth?.connected ? 1 : 0.5,
-              borderRadius: '4px',
-            }}
-          >
-            STOP PUMP
-          </button>
-        ) : (
-          <button
-            onClick={() => handlePumpControl('PUMP_ON')}
-            disabled={!connectionHealth?.connected}
-            style={{
-              background: '#22c55e',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              fontFamily: 'monospace',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: connectionHealth?.connected ? 'pointer' : 'not-allowed',
-              opacity: connectionHealth?.connected ? 1 : 0.5,
-              borderRadius: '4px',
-            }}
-          >
-            START PUMP
-          </button>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div>-------------------------------------------------------</div>
+          <div style={{ fontWeight: 'bold', letterSpacing: '1px' }}>SMART DRAINAGE MONITORING SYSTEM</div>
+          <div>-------------------------------------------------------</div>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          {connectionHealth?.connected ? (
+            <span style={{ color: '#22c55e', fontWeight: 'bold' }}>🟢 Connected</span>
+          ) : (
+            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 Disconnected</span>
+          )}
+        </div>
+
+        {error && (
+          <div style={{ color: '#eab308', border: '1px solid #eab308', padding: '8px', marginBottom: '20px' }}>
+            Warning: Lost connection to API gateway.
+          </div>
         )}
+
+        {actionError && (
+          <div style={{ color: '#ef4444', border: '1px solid #ef4444', padding: '8px', marginBottom: '20px' }}>
+            Action Failed: {actionError}
+          </div>
+        )}
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '4px' }}>Water Level</div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', margin: '8px 0', paddingLeft: '8px' }}>
+            {waterLevel} %
+          </div>
+          <div style={{ letterSpacing: '2px', fontSize: '16px', color: '#3b82f6' }}>
+            {progressBar}
+          </div>
+        </div>
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '4px' }}>System Status</div>
+          <div>{getStatusDisplay(latestState?.status)}</div>
+        </div>
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '4px' }}>Water Detection</div>
+          <div>{waterPresenceDisplay}</div>
+        </div>
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '4px' }}>Current Distance</div>
+          <div style={{ fontWeight: 'bold' }}>{(latestState?.distance ?? 0).toFixed(1)} cm</div>
+        </div>
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '4px' }}>Drainage Condition</div>
+          <div>{conditionDisplay}</div>
+        </div>
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '4px' }}>Pump</div>
+          <div style={{ margin: '8px 0', fontSize: '16px' }}>
+            {latestState?.pumpRunning ? (
+              <span style={{ color: '#22c55e', fontWeight: 'bold' }}>🟢 ON</span>
+            ) : (
+              <span style={{ color: '#71717a' }}>⚪ OFF</span>
+            )}
+          </div>
+          
+          <div style={{ marginTop: '15px' }}>
+            {latestState?.pumpRunning ? (
+              <button
+                onClick={() => handlePumpControl('PUMP_OFF')}
+                disabled={!connectionHealth?.connected}
+                style={{
+                  background: 'none',
+                  border: '1px solid #ef4444',
+                  color: '#ef4444',
+                  padding: '8px 16px',
+                  fontFamily: 'monospace',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: connectionHealth?.connected ? 'pointer' : 'not-allowed',
+                  opacity: connectionHealth?.connected ? 1 : 0.5,
+                  borderRadius: '3px',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseOver={(e) => { if (connectionHealth?.connected) { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = 'white'; } }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#ef4444'; }}
+              >
+                [ STOP PUMP ]
+              </button>
+            ) : (
+              <button
+                onClick={() => handlePumpControl('PUMP_ON')}
+                disabled={!connectionHealth?.connected}
+                style={{
+                  background: 'none',
+                  border: '1px solid #22c55e',
+                  color: '#22c55e',
+                  padding: '8px 16px',
+                  fontFamily: 'monospace',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: connectionHealth?.connected ? 'pointer' : 'not-allowed',
+                  opacity: connectionHealth?.connected ? 1 : 0.5,
+                  borderRadius: '3px',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseOver={(e) => { if (connectionHealth?.connected) { e.currentTarget.style.background = '#22c55e'; e.currentTarget.style.color = 'white'; } }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#22c55e'; }}
+              >
+                [ START PUMP ]
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div>────────────────────────────────────────────</div>
+
+        <div style={{ margin: '15px 0' }}>
+          <div style={{ color: '#a1a1aa', marginBottom: '8px' }}>Recent Events</div>
+          {recentEvents.length > 0 ? recentEvents : <div style={{ color: '#71717a' }}>• No events logged yet</div>}
+        </div>
+
       </div>
-
-      <h2>Latest State</h2>
-      <table border={1} cellPadding={8} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', borderColor: '#ddd' }}>
-        <tbody>
-          <tr>
-            <td style={{ width: '40%' }}><strong>Water Detected:</strong></td>
-            <td>{latestState?.waterDetected ? 'true' : 'false'}</td>
-          </tr>
-          <tr>
-            <td><strong>Water Sensor Value:</strong></td>
-            <td>{latestState?.waterSensor}</td>
-          </tr>
-          <tr>
-            <td><strong>Distance:</strong></td>
-            <td>{latestState?.distance}</td>
-          </tr>
-          <tr>
-            <td><strong>Water Level:</strong></td>
-            <td>{latestState?.waterLevel}</td>
-          </tr>
-          <tr>
-            <td><strong>Status:</strong></td>
-            <td>{latestState?.status}</td>
-          </tr>
-          <tr>
-            <td><strong>Pump Running:</strong></td>
-            <td>{latestState?.pumpRunning ? 'true' : 'false'}</td>
-          </tr>
-          <tr>
-            <td><strong>Relay:</strong></td>
-            <td>{latestState?.relay ? 'true' : 'false'}</td>
-          </tr>
-          <tr>
-            <td><strong>Timestamp:</strong></td>
-            <td>{latestState?.timestamp}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h2>Collections Count</h2>
-      <table border={1} cellPadding={8} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', borderColor: '#ddd' }}>
-        <tbody>
-          <tr>
-            <td style={{ width: '40%' }}><strong>History Count:</strong></td>
-            <td>{historyCount}</td>
-          </tr>
-          <tr>
-            <td><strong>Events Count:</strong></td>
-            <td>{eventsCount}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <hr />
-
-      <h2>Complete Raw JSON Response</h2>
-      <pre style={{ background: '#eee', padding: '15px', borderRadius: '5px', overflowX: 'auto', fontSize: '11px', lineHeight: '1.4' }}>
-        {JSON.stringify(data, null, 2)}
-      </pre>
     </div>
   );
 }
