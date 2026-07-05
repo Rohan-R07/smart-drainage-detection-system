@@ -26,7 +26,7 @@ export default function StatusPanel({ latestState, connected }: StatusPanelProps
   const statusRegistry = [
     {
       key: 'DRY',
-      label: 'No Water Detected',
+      label: '⚪ No Water Detected',
       color: 'zinc',
       badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-200',
       activeBadgeClass: 'bg-zinc-100 text-zinc-800 border-zinc-300 ring-zinc-200',

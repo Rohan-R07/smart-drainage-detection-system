@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const isConnected = connectionHealth?.connected ?? false;
   const waterLevel = latestState?.waterLevel ?? 0;
   const distanceValue = latestState?.distance ?? 0;
+  const isWaterDetected = latestState?.waterDetected ?? false;
 
   // Circular ring properties
   const radius = 18;
@@ -95,160 +96,190 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* First Row: 4 Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          
-          {/* Card 1: Water Level */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                <span className="text-blue-500">💧</span> Water Level
-              </span>
-              {/* Circular ring indicator */}
-              <svg className="w-8 h-8 transform -rotate-90">
-                <circle cx="16" cy="16" r={radius} className="stroke-zinc-100" strokeWidth="2.5" fill="transparent" />
-                <motion.circle
-                  cx="16"
-                  cy="16"
-                  r={radius}
-                  className="stroke-blue-500"
-                  strokeWidth="2.5"
-                  fill="transparent"
-                  strokeDasharray={circumference}
-                  animate={{ strokeDashoffset }}
-                  transition={{ duration: 0.8 }}
-                />
-              </svg>
-            </div>
-            <div className="flex items-baseline mt-2">
-              <span className="text-3xl font-black text-zinc-800 tracking-tight">{waterLevel}</span>
-              <span className="text-sm font-bold text-zinc-400 ml-0.5">%</span>
-            </div>
-            {/* Sparkline Visual */}
-            <div className="h-6 w-full mt-2">
-              {sparklineData.length > 0 && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sparklineData}>
-                    <Area type="monotone" dataKey="waterLevel" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.05} strokeWidth={1.5} dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </motion.div>
+        <AnimatePresence mode="wait">
+          {!isWaterDetected ? (
+            /* DRY EMPTY STATE PANEL */
+            <motion.div
+              key="dry-state"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.4 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start"
+            >
+              {/* Centered Monospace illustration droplet Empty-State Card */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-[20px] border border-zinc-100 p-12 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col items-center justify-center text-center min-h-[500px]">
+                  <motion.div
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                    className="w-24 h-24 rounded-full bg-blue-50 border border-blue-100/50 flex items-center justify-center text-blue-500 text-5xl mb-6 shadow-sm"
+                  >
+                    💧
+                  </motion.div>
+                  <h2 className="text-xl font-black text-zinc-850 tracking-tight flex items-center gap-2 justify-center">
+                    No Water Detected
+                  </h2>
+                  <p className="text-sm text-zinc-400 font-semibold max-w-sm mt-3 leading-relaxed">
+                    The drainage is currently dry.
+                    <br />
+                    Waiting for water to be detected...
+                  </p>
+                </div>
+              </div>
 
-          {/* Card 2: Distance */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-            className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Ruler className="w-3.5 h-3.5 text-zinc-400" /> Sensor Distance
-              </span>
-            </div>
-            <div className="flex items-baseline mt-4">
-              <span className="text-3xl font-black text-zinc-800 tracking-tight">
-                {distanceValue.toFixed(1)}
-              </span>
-              <span className="text-sm font-bold text-zinc-400 ml-0.5">cm</span>
-            </div>
-            <div className="text-[10px] text-zinc-400 font-semibold mt-2 uppercase tracking-wide">
-              Ultrasonic Depth Reading
-            </div>
-          </motion.div>
+              {/* Status and Events Timeline (continue displaying side-by-side) */}
+              <div className="lg:col-span-1 flex flex-col gap-6">
+                {latestState && (
+                  <StatusPanel latestState={latestState} connected={isConnected} />
+                )}
+                <EventTimeline events={events} />
+              </div>
+            </motion.div>
+          ) : (
+            /* WATER TELEMETRY PRESENT DASHBOARD PANEL */
+            <motion.div
+              key="wet-state"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col gap-6"
+            >
+              {/* First Row: 4 Stat Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                
+                {/* Card 1: Water Level */}
+                <div className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="text-blue-500">💧</span> Water Level
+                    </span>
+                    <svg className="w-8 h-8 transform -rotate-90">
+                      <circle cx="16" cy="16" r={radius} className="stroke-zinc-100" strokeWidth="2.5" fill="transparent" />
+                      <motion.circle
+                        cx="16"
+                        cy="16"
+                        r={radius}
+                        className="stroke-blue-500"
+                        strokeWidth="2.5"
+                        fill="transparent"
+                        strokeDasharray={circumference}
+                        animate={{ strokeDashoffset }}
+                        transition={{ duration: 0.8 }}
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex items-baseline mt-2">
+                    <span className="text-3xl font-black text-zinc-800 tracking-tight">{waterLevel}</span>
+                    <span className="text-sm font-bold text-zinc-400 ml-0.5">%</span>
+                  </div>
+                  <div className="h-6 w-full mt-2">
+                    {sparklineData.length > 0 && (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={sparklineData}>
+                          <Area type="monotone" dataKey="waterLevel" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.05} strokeWidth={1.5} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
 
-          {/* Card 3: Water Detection */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                <span className="text-blue-500">🚰</span> Water Detection
-              </span>
-              <motion.div
-                animate={latestState?.waterDetected ? { y: [0, -3, 0], scale: [1, 1.05, 1] } : {}}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="text-blue-500"
-              >
-                <Droplet className="w-5 h-5 fill-current" />
-              </motion.div>
-            </div>
-            <div className="flex items-baseline mt-4">
-              <span className="text-3xl font-black text-zinc-800 tracking-tight">
-                {latestState?.waterDetected ? 'YES' : 'NO'}
-              </span>
-            </div>
-            <div className="text-[10px] text-zinc-400 font-semibold mt-2 uppercase tracking-wide">
-              Inlet Plate Contact
-            </div>
-          </motion.div>
+                {/* Card 2: Distance */}
+                <div className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <Ruler className="w-3.5 h-3.5 text-zinc-400" /> Sensor Distance
+                    </span>
+                  </div>
+                  <div className="flex items-baseline mt-4">
+                    <span className="text-3xl font-black text-zinc-800 tracking-tight">
+                      {distanceValue.toFixed(1)}
+                    </span>
+                    <span className="text-sm font-bold text-zinc-400 ml-0.5">cm</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-semibold mt-2 uppercase tracking-wide">
+                    Ultrasonic Depth Reading
+                  </div>
+                </div>
 
-          {/* Card 4: Pump Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                <span className="text-amber-500">⚡</span> Pump Status
-              </span>
-              <motion.div
-                animate={latestState?.pumpRunning ? { rotate: 360 } : {}}
-                transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                className={latestState?.pumpRunning ? 'text-emerald-500' : 'text-zinc-300'}
-              >
-                <Fan className="w-5 h-5" />
-              </motion.div>
-            </div>
-            <div className="flex items-baseline mt-4">
-              <span className="text-3xl font-black text-zinc-800 tracking-tight">
-                {latestState?.pumpRunning ? 'Running' : 'Stopped'}
-              </span>
-            </div>
-            <div className="text-[10px] text-zinc-400 font-semibold mt-2 uppercase tracking-wide">
-              Motor Actuator
-            </div>
-          </motion.div>
+                {/* Card 3: Water Detection */}
+                <div className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="text-blue-500">🚰</span> Water Detection
+                    </span>
+                    <motion.div
+                      animate={latestState?.waterDetected ? { y: [0, -3, 0], scale: [1, 1.05, 1] } : {}}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                      className="text-blue-500"
+                    >
+                      <Droplet className="w-5 h-5 fill-current" />
+                    </motion.div>
+                  </div>
+                  <div className="flex items-baseline mt-4">
+                    <span className="text-3xl font-black text-zinc-800 tracking-tight">
+                      {latestState?.waterDetected ? 'YES' : 'NO'}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-semibold mt-2 uppercase tracking-wide">
+                    Inlet Plate Contact
+                  </div>
+                </div>
 
-        </div>
+                {/* Card 4: Pump Status */}
+                <div className="bg-white rounded-[20px] border border-zinc-100 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[120px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="text-amber-500">⚡</span> Pump Status
+                    </span>
+                    <motion.div
+                      animate={latestState?.pumpRunning ? { rotate: 360 } : {}}
+                      transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                      className={latestState?.pumpRunning ? 'text-emerald-500' : 'text-zinc-300'}
+                    >
+                      <Fan className="w-5 h-5" />
+                    </motion.div>
+                  </div>
+                  <div className="flex items-baseline mt-4">
+                    <span className="text-3xl font-black text-zinc-800 tracking-tight">
+                      {latestState?.pumpRunning ? 'Running' : 'Stopped'}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-semibold mt-2 uppercase tracking-wide">
+                    Motor Actuator
+                  </div>
+                </div>
 
-        {/* Second Row: Core Analytics Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <RealtimeCharts history={history} />
-          </div>
-          <div className="lg:col-span-1">
-            <WaterGauge waterLevel={waterLevel} connected={isConnected} />
-          </div>
-        </div>
+              </div>
 
-        {/* Third Row: Diagnostics & Control Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {latestState && (
-            <>
-              <StatusPanel latestState={latestState} connected={isConnected} />
-              <ControlPanel latestState={latestState} connected={isConnected} onSuccess={fetchData} />
-            </>
+              {/* Second Row: Core Analytics Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <RealtimeCharts history={history} />
+                </div>
+                <div className="lg:col-span-1">
+                  <WaterGauge waterLevel={waterLevel} connected={isConnected} />
+                </div>
+              </div>
+
+              {/* Third Row: Diagnostics & Control Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {latestState && (
+                  <>
+                    <StatusPanel latestState={latestState} connected={isConnected} />
+                    <ControlPanel latestState={latestState} connected={isConnected} onSuccess={fetchData} />
+                  </>
+                )}
+              </div>
+
+              {/* Fourth Row: Live Activity Timeline */}
+              <div className="w-full">
+                <EventTimeline events={events} />
+              </div>
+            </motion.div>
           )}
-        </div>
-
-        {/* Fourth Row: Live Activity Timeline */}
-        <div className="w-full">
-          <EventTimeline events={events} />
-        </div>
-
+        </AnimatePresence>
       </main>
 
       {/* Reconnection Overlay Cover Screen (Apple/Tesla style blur) */}
